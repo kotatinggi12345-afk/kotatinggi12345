@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#143b83">
+<title>明明上帝・拼字挑戰</title>
+<style>
+:root{--gold:#f4c44e;--ink:#18315c;--cream:#fff8e7;--blue:#164b9b}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;color:var(--ink);background:linear-gradient(160deg,#83c9ff,#eaf7ff 48%,#b7e7ff);padding:18px}
+.wrap{max-width:620px;margin:auto}
+header{text-align:center;padding:18px 12px 14px;background:linear-gradient(135deg,#fff7d8,#ffe7a0);border:3px solid #e6ad35;border-radius:24px;box-shadow:0 7px 0 #bd8325}
+h1{margin:0;color:#a82017;font-size:clamp(27px,7vw,42px);text-shadow:1px 2px #fff}
+.sub{margin:7px 0 0;font-size:15px}
+.card{margin-top:16px;background:var(--cream);border:2px solid #e5b548;border-radius:22px;padding:18px;box-shadow:0 5px 0 #c18d35}
+.topline{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{background:#174b96;color:white;border-radius:999px;padding:7px 14px;font-weight:700}
+.progress{height:10px;background:#eadcb9;border-radius:20px;overflow:hidden;margin:13px 0}
+#bar{height:100%;width:0;background:linear-gradient(90deg,#ffbd37,#ed7a20);transition:width .25s}
+.prompt{text-align:center;font-size:18px;font-weight:700;margin:14px 0 5px}
+.slots,.tiles{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin:17px 0}
+.slot,.tile{width:clamp(52px,13vw,68px);height:clamp(58px,14vw,74px);border-radius:14px;display:grid;place-items:center;font-size:clamp(25px,7vw,34px);font-weight:800}
+.slot{background:#fff;border:2px dashed #d4a33c;color:#17345e}
+.slot.filled{border-style:solid;background:#fff0bf}
+.tiles{min-height:78px}
+.tile{border:2px solid #d69a24;background:linear-gradient(#fff2bd,#ffd86f);color:#3b2b12;box-shadow:0 3px 0 #c18b28;cursor:pointer}
+.tile:disabled{opacity:.28;cursor:default;box-shadow:none}
+.actions{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:16px}
+button{font:inherit}
+.btn{border:0;border-radius:999px;padding:11px 17px;font-weight:800;color:white;background:#1760b7;box-shadow:0 3px 0 #0c3975;cursor:pointer}
+.btn.secondary{background:#6a43a7;box-shadow:0 3px 0 #42266e}
+.btn.gold{background:#d98213;box-shadow:0 3px 0 #98580c}
+.btn:active{transform:translateY(2px);box-shadow:none}
+#message{text-align:center;min-height:28px;font-weight:800;margin:13px 0 0}
+#message.good{color:#168044} #message.bad{color:#b52d20}
+.note{text-align:center;font-size:13px;opacity:.8;margin:14px 0}
+#done{display:none;text-align:center}
+.trophy{font-size:64px}
+#done h2{color:#a82017;font-size:30px;margin:5px}
+footer{text-align:center;font-size:12px;margin:14px;color:#24466d}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>明明上帝</h1><div style="font-size:25px;color:#174b96;font-weight:900">拼字挑戰 🧩</div><p class="sub">把打亂的文字重新排列，完成五句敬語！</p></header>
+<section class="card" id="game">
+ <div class="topline"><span class="badge" id="level">第 1 關／共 5 關</span><strong>⭐ 得分：<span id="score">0</span></strong></div>
+ <div class="progress"><div id="bar"></div></div>
+ <div class="prompt">請點選下方文字，排成正確句子：</div>
+ <div class="slots" id="slots"></div>
+ <div class="tiles" id="tiles"></div>
+ <div class="actions">
+  <button class="btn" id="check">檢查答案</button>
+  <button class="btn secondary" id="undo">退回一字</button>
+  <button class="btn gold" id="shuffle">重新打亂</button>
+  <button class="btn secondary" id="hint">提示</button>
+ </div>
+ <div id="message" aria-live="polite">點選文字，放進上方空格。</div>
+</section>
+<section class="card" id="done">
+ <div class="trophy">🏆</div><h2>恭喜通關！</h2>
+ <p>你已完成全部五句：</p>
+ <div id="answers" style="font-size:25px;line-height:1.9;font-weight:900"></div>
+ <p style="font-size:20px">總得分：<strong id="finalscore">0</strong> ⭐</p>
+ <button class="btn" onclick="restart()">再玩一次</button>
+</section>
+<footer>明明上帝・中文拼字遊戲</footer>
+</div>
+<script>
+const phrases=["明明上帝","無量清虛","至尊至聖","三界十方","萬靈真宰"];
+let level=0, chosen=[], pool=[], score=0, hintUsed=false;
+const $=id=>document.getElementById(id);
+function shuffled(chars){
+ let a=[...chars];
+ for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+ if(a.join("")===chars && a.length>1) [a[0],a[1]]=[a[1],a[0]];
+ return a;
+}
+function startLevel(){
+ chosen=[];pool=shuffled(phrases[level]);hintUsed=false;
+ $("game").style.display="block";$("done").style.display="none";
+ $("level").textContent=`第 ${level+1} 關／共 5 關`;
+ $("score").textContent=score;$("bar").style.width=(level/5*100)+"%";
+ $("message").className="";$("message").textContent="點選文字，放進上方空格。";
+ render();
+}
+function render(){
+ $("slots").innerHTML="";
+ [...phrases[level]].forEach((_,i)=>{
+  let s=document.createElement("button");s.className="slot"+(chosen[i]!==undefined?" filled":"");
+  s.textContent=chosen[i]===undefined?"？":pool[chosen[i]];
+  s.setAttribute("aria-label",`第${i+1}個字`);
+  s.onclick=()=>{if(chosen[i]!==undefined){chosen.splice(i,1);render()}};
+  $("slots").appendChild(s);
+ });
+ $("tiles").innerHTML="";
+ pool.forEach((ch,i)=>{
+  let b=document.createElement("button");b.className="tile";b.textContent=ch;
+  b.disabled=chosen.includes(i);b.onclick=()=>{if(chosen.length<4){chosen.push(i);render()}};
+  $("tiles").appendChild(b);
+ });
+}
+$("check").onclick=()=>{
+ if(chosen.length!==4){$("message").className="bad";$("message").textContent="還沒排滿四個字喔！";return}
+ let answer=chosen.map(i=>pool[i]).join("");
+ if(answer===phrases[level]){
+  score+=hintUsed?5:10;$("score").textContent=score;$("bar").style.width=((level+1)/5*100)+"%";
+  $("message").className="good";$("message").textContent="答對了！太棒了 🎉";
+  $("check").disabled=true;
+  setTimeout(()=>{level++;$("check").disabled=false;if(level<5)startLevel();else finish()},850);
+ }else{$("message").className="bad";$("message").textContent="再試一次！可以點上方字格退回。"}
+};
+$("undo").onclick=()=>{chosen.pop();render();$("message").textContent="已退回一個字。"};
+$("shuffle").onclick=()=>{pool=shuffled(phrases[level]);chosen=[];render();$("message").textContent="文字已重新打亂。"};
+$("hint").onclick=()=>{hintUsed=true;$("message").className="";$("message").textContent="提示："+phrases[level][0]+"＿＿＿（第一個字）";};
+function finish(){
+ $("game").style.display="none";$("done").style.display="block";
+ $("answers").innerHTML=phrases.join("<br>");$("finalscore").textContent=score;
+}
+function restart(){level=0;score=0;startLevel()}
+startLevel();
+</script>
+</body></html>
